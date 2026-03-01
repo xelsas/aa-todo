@@ -1,0 +1,179 @@
+{% extends 'todo/base.html' %}
+
+{% load i18n static %}
+
+{% block details %}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} mb-3" role="alert">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <div class="card-title">{% translate "Create Todo Item" %}</div>
+        </div>
+
+        <div class="card-body">
+            <form method="post" action="{% url 'todo:index' %}">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button class="btn btn-primary" type="submit">
+                    {% translate "Add Item" %}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3" id="todo-group-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-title">{% translate "Group Items" %}</div>
+            <div id="todo-group-page-meta" class="text-muted small"></div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Group" %}</th>
+                            <th>{% translate "Title" %}</th>
+                            <th>{% translate "Description" %}</th>
+                            <th>{% translate "Created At" %}</th>
+                            <th>{% translate "Created By" %}</th>
+                            <th>{% translate "Status" %}</th>
+                            <th>{% translate "Claimed By" %}</th>
+                            <th>{% translate "Done By" %}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="todo-group-body">
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="todo-group-pager" class="d-flex justify-content-end gap-2 p-3 border-top"></div>
+        </div>
+    </div>
+
+    <div class="card mb-3" id="todo-personal-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-title">{% translate "My Personal Items" %}</div>
+            <div id="todo-personal-page-meta" class="text-muted small"></div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Title" %}</th>
+                            <th>{% translate "Description" %}</th>
+                            <th>{% translate "Created At" %}</th>
+                            <th>{% translate "Status" %}</th>
+                            <th>{% translate "Claimed By" %}</th>
+                            <th>{% translate "Done By" %}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="todo-personal-body">
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="todo-personal-pager" class="d-flex justify-content-end gap-2 p-3 border-top"></div>
+        </div>
+    </div>
+
+    {% if perms.todo.full_access %}
+        <div class="card" id="todo-personal-other-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card-title">{% translate "Other Users' Personal Items" %}</div>
+                <div id="todo-personal-other-page-meta" class="text-muted small"></div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Title" %}</th>
+                                <th>{% translate "Description" %}</th>
+                                <th>{% translate "Created At" %}</th>
+                                <th>{% translate "Created By" %}</th>
+                                <th>{% translate "Status" %}</th>
+                                <th>{% translate "Claimed By" %}</th>
+                                <th>{% translate "Done By" %}</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="todo-personal-other-body">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="todo-personal-other-pager" class="d-flex justify-content-end gap-2 p-3 border-top"></div>
+            </div>
+        </div>
+    {% endif %}
+
+    <template id="todo-template-action-form">
+        <form method="post" class="d-inline">
+            <input type="hidden" name="csrfmiddlewaretoken" value="">
+            <button class="btn btn-sm" type="submit"></button>
+        </form>
+    </template>
+
+    <template id="todo-template-message-row">
+        <tr>
+            <td class="text-center py-4"></td>
+        </tr>
+    </template>
+
+    <template id="todo-template-group-row">
+        <tr>
+            <td data-field="group_name"></td>
+            <td data-field="title"></td>
+            <td data-field="description"></td>
+            <td data-field="created_at_display"></td>
+            <td data-field="created_by"></td>
+            <td data-field="status_display"></td>
+            <td data-field="claimed_by"></td>
+            <td data-field="done_by"></td>
+            <td class="text-end" data-field="actions"></td>
+        </tr>
+    </template>
+
+    <template id="todo-template-personal-row">
+        <tr>
+            <td data-field="title"></td>
+            <td data-field="description"></td>
+            <td data-field="created_at_display"></td>
+            <td data-field="status_display"></td>
+            <td data-field="claimed_by"></td>
+            <td data-field="done_by"></td>
+            <td class="text-end" data-field="actions"></td>
+        </tr>
+    </template>
+
+    <template id="todo-template-personal-other-row">
+        <tr>
+            <td data-field="title"></td>
+            <td data-field="description"></td>
+            <td data-field="created_at_display"></td>
+            <td data-field="created_by"></td>
+            <td data-field="status_display"></td>
+            <td data-field="claimed_by"></td>
+            <td data-field="done_by"></td>
+            <td class="text-end" data-field="actions"></td>
+        </tr>
+    </template>
+
+    {{ todo_ui_config|json_script:"todo-ui-config" }}
+    <script src="{% static 'todo/index.js' %}"></script>
+{% endblock %}
