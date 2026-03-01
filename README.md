@@ -39,7 +39,6 @@ python manage.py migrate
   - Can see and manage their own personal todos.
   - Can claim/unclaim/complete items they can access, following item state rules.
 - `todo.full_access`
-  - Includes everything in `todo.basic_access`.
   - Can see todos across all visible groups.
   - Can see personal todos created by other users.
   - Can create todos for any visible group.
