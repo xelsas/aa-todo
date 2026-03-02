@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.handlers.wsgi import WSGIRequest
 from django.core.paginator import Page, Paginator
-from django.db.models import QuerySet
+from django.db.models import F, QuerySet
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -95,6 +95,11 @@ def _serialize_item(item: TodoItem, user: Any) -> dict[str, Any]:
         "description": item.description,
         "created_at_display": formats.date_format(
             timezone.localtime(item.created_at), "SHORT_DATETIME_FORMAT", use_l10n=True
+        ),
+        "deadline_display": (
+            formats.date_format(item.deadline, "SHORT_DATE_FORMAT", use_l10n=True)
+            if item.deadline
+            else None
         ),
         "created_by": str(item.created_by) if item.created_by else None,
         "claimed_by": str(item.claimed_by) if item.claimed_by else None,
@@ -329,7 +334,7 @@ def api_group_items(request: WSGIRequest) -> JsonResponse:
     items_qs = (
         TodoItem.objects.group_items_visible_to(user)
         .with_related()
-        .order_by("created_at")
+        .order_by(F("deadline").asc(nulls_last=True), "created_at")
     )
     return _paginated_items_response(request, items_qs, user)
 
@@ -344,7 +349,7 @@ def api_personal_items(request: WSGIRequest) -> JsonResponse:
     items_qs = (
         TodoItem.objects.personal_items_for_user(user)
         .with_related()
-        .order_by("created_at")
+        .order_by(F("deadline").asc(nulls_last=True), "created_at")
     )
     return _paginated_items_response(request, items_qs, user)
 
@@ -362,6 +367,6 @@ def api_personal_other_items(request: WSGIRequest) -> JsonResponse:
     items_qs = (
         TodoItem.objects.personal_other_items_for_user(user)
         .with_related()
-        .order_by("created_at")
+        .order_by(F("deadline").asc(nulls_last=True), "created_at")
     )
     return _paginated_items_response(request, items_qs, user)

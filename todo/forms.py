@@ -4,6 +4,7 @@
 from typing import TYPE_CHECKING, Any, cast
 
 from django import forms
+from django.forms.widgets import DateInput
 from django.utils.translation import gettext_lazy as _
 
 # AA Todo App
@@ -25,7 +26,10 @@ class TodoItemCreateForm(_TodoModelFormBase):
 
     class Meta:
         model = TodoItem
-        fields = ("group", "title", "description")
+        fields = ("group", "title", "description", "deadline")
+        widgets = {
+            "deadline": DateInput(attrs={"type": "date"}),
+        }
 
     def __init__(self, *args: Any, user: Any = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

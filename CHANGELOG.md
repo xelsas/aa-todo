@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Single-page todo management UI to create, claim, unclaim, and mark items done.
 - Visibility and action rules for group members and claimed items, with `full_access` bypass.
 - Unit test coverage for create/list/claim/done/unclaim behavior and permission rules.
+- Optional `deadline` field for todo items, including create-form input and API/UI display.
 
 ### Changed
 

@@ -93,6 +93,7 @@ class TodoItem(models.Model):
     )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    deadline = models.DateField(null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

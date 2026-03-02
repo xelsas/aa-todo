@@ -1,6 +1,7 @@
 """Todo tests"""
 
 # Standard Library
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 # Alliance Auth
@@ -11,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 # AA Todo App
 from todo.forms import TodoItemCreateForm
@@ -492,6 +494,116 @@ class TestTodo(TestCase):
         self.assertEqual(other_page_1["page"], 1)
         self.assertEqual(other_page_1["page_size"], 4)
         self.assertEqual(len(other_page_1["results"]), 4)
+
+    def test_api_orders_by_deadline_then_created_at_with_nulls_last(self):
+        today = timezone.localdate()
+
+        TodoItem.objects.create(
+            group=self.group_alpha,
+            title="group d1 first",
+            created_by=self.user_alpha,
+            deadline=today + timedelta(days=1),
+        )
+        TodoItem.objects.create(
+            group=self.group_alpha,
+            title="group none first",
+            created_by=self.user_alpha,
+            deadline=None,
+        )
+        TodoItem.objects.create(
+            group=self.group_alpha,
+            title="group d1 second",
+            created_by=self.user_alpha,
+            deadline=today + timedelta(days=1),
+        )
+        TodoItem.objects.create(
+            group=self.group_alpha,
+            title="group d2",
+            created_by=self.user_alpha,
+            deadline=today + timedelta(days=2),
+        )
+        TodoItem.objects.create(
+            group=self.group_alpha,
+            title="group none second",
+            created_by=self.user_alpha,
+            deadline=None,
+        )
+
+        group_titles = [
+            item["title"]
+            for item in self.get_json("todo:api_group_items", self.user_admin)[
+                "results"
+            ]
+        ]
+        self.assertEqual(
+            group_titles,
+            [
+                "group d1 first",
+                "group d1 second",
+                "group d2",
+                "group none first",
+                "group none second",
+            ],
+        )
+
+        TodoItem.objects.create(
+            group=None,
+            title="personal d1",
+            created_by=self.user_alpha,
+            deadline=today + timedelta(days=1),
+        )
+        TodoItem.objects.create(
+            group=None,
+            title="personal none",
+            created_by=self.user_alpha,
+            deadline=None,
+        )
+        TodoItem.objects.create(
+            group=None,
+            title="personal d2",
+            created_by=self.user_alpha,
+            deadline=today + timedelta(days=2),
+        )
+
+        personal_titles = [
+            item["title"]
+            for item in self.get_json("todo:api_personal_items", self.user_alpha)[
+                "results"
+            ]
+        ]
+        self.assertEqual(
+            personal_titles, ["personal d1", "personal d2", "personal none"]
+        )
+
+        TodoItem.objects.create(
+            group=None,
+            title="other personal none",
+            created_by=self.user_bravo,
+            deadline=None,
+        )
+        TodoItem.objects.create(
+            group=None,
+            title="other personal d1",
+            created_by=self.user_bravo,
+            deadline=today + timedelta(days=1),
+        )
+
+        other_personal_titles = [
+            item["title"]
+            for item in self.get_json("todo:api_personal_other_items", self.user_admin)[
+                "results"
+            ]
+        ]
+        self.assertEqual(
+            other_personal_titles,
+            [
+                "personal d1",
+                "other personal d1",
+                "personal d2",
+                "personal none",
+                "other personal none",
+            ],
+        )
 
     def test_securegroups_visibility_q_includes_smartgroup(self):
         # When securegroups is installed, hidden groups are allowed if they are SmartGroups.

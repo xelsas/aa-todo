@@ -40,6 +40,7 @@
                             <th>{% translate "Group" %}</th>
                             <th>{% translate "Title" %}</th>
                             <th>{% translate "Description" %}</th>
+                            <th>{% translate "Deadline" %}</th>
                             <th>{% translate "Created At" %}</th>
                             <th>{% translate "Created By" %}</th>
                             <th>{% translate "Status" %}</th>
@@ -50,7 +51,7 @@
                     </thead>
                     <tbody id="todo-group-body">
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
+                            <td colspan="10" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -71,6 +72,7 @@
                         <tr>
                             <th>{% translate "Title" %}</th>
                             <th>{% translate "Description" %}</th>
+                            <th>{% translate "Deadline" %}</th>
                             <th>{% translate "Created At" %}</th>
                             <th>{% translate "Status" %}</th>
                             <th>{% translate "Claimed By" %}</th>
@@ -80,7 +82,7 @@
                     </thead>
                     <tbody id="todo-personal-body">
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
+                            <td colspan="8" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -102,6 +104,7 @@
                             <tr>
                                 <th>{% translate "Title" %}</th>
                                 <th>{% translate "Description" %}</th>
+                                <th>{% translate "Deadline" %}</th>
                                 <th>{% translate "Created At" %}</th>
                                 <th>{% translate "Created By" %}</th>
                                 <th>{% translate "Status" %}</th>
@@ -112,7 +115,7 @@
                         </thead>
                         <tbody id="todo-personal-other-body">
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
+                                <td colspan="9" class="text-center text-muted py-4">{% translate "Loading items..." %}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -140,6 +143,7 @@
             <td data-field="group_name"></td>
             <td data-field="title"></td>
             <td data-field="description"></td>
+            <td data-field="deadline_display"></td>
             <td data-field="created_at_display"></td>
             <td data-field="created_by"></td>
             <td data-field="status_display"></td>
@@ -153,6 +157,7 @@
         <tr>
             <td data-field="title"></td>
             <td data-field="description"></td>
+            <td data-field="deadline_display"></td>
             <td data-field="created_at_display"></td>
             <td data-field="status_display"></td>
             <td data-field="claimed_by"></td>
@@ -165,6 +170,7 @@
         <tr>
             <td data-field="title"></td>
             <td data-field="description"></td>
+            <td data-field="deadline_display"></td>
             <td data-field="created_at_display"></td>
             <td data-field="created_by"></td>
             <td data-field="status_display"></td>
