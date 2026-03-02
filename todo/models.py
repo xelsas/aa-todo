@@ -7,7 +7,7 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 from django.db.models.query import QuerySet
 from django.utils.translation import gettext_lazy as _
 
@@ -66,8 +66,15 @@ class TodoItemQuerySet(models.QuerySet["TodoItem"]):
     def with_related(self) -> "TodoItemQuerySet":
         return self.select_related("group", "created_by", "claimed_by", "done_by")
 
+    def for_api_list(self) -> "TodoItemQuerySet":
+        """Return queryset with related models and default API ordering."""
+
+        return self.with_related().order_by(
+            F("deadline").asc(nulls_last=True), "created_at"
+        )
+
     def group_items_visible_to(self, user: Any) -> "TodoItemQuerySet":
-        qs = self.filter(group__isnull=False).filter(todo_group_visibility_q("group__"))
+        qs = self.filter(group__isnull=False)
         if user.has_perm(PERM_FULL_ACCESS):
             return qs
         return qs.filter(Q(group__in=user.groups.all()) | Q(claimed_by=user))
@@ -143,9 +150,6 @@ class TodoItem(models.Model):
                 return True
             return bool(self.created_by_id == user.id)
 
-        if not is_group_selectable_for_todo(self.group_id):
-            return False
-
         if user.has_perm(PERM_FULL_ACCESS):
             return True
 
@@ -160,10 +164,37 @@ class TodoItem(models.Model):
         if user.has_perm(PERM_FULL_ACCESS):
             return True
 
-        if self.group_id is not None and not self._creator_can_still_access_group_item():
+        if (
+            self.group_id is not None
+            and not self._creator_can_still_access_group_item()
+        ):
             return bool(user.groups.filter(pk=self.group_id).exists())
 
         if self.created_by_id != user.id:
             return False
 
         return bool(self.status != TodoStatus.DONE and self.claimed_by_id is None)
+
+    def can_claim(self, user: Any) -> bool:
+        """Return whether user may claim this todo item."""
+
+        return bool(
+            self.can_access(user)
+            and self.status != TodoStatus.DONE
+            and self.claimed_by_id is None
+        )
+
+    def can_unclaim(self, user: Any) -> bool:
+        """Return whether user may unclaim this todo item."""
+
+        return bool(
+            self.can_access(user)
+            and self.status != TodoStatus.DONE
+            and self.claimed_by_id is not None
+            and (user.has_perm(PERM_FULL_ACCESS) or self.claimed_by_id == user.id)
+        )
+
+    def can_done(self, user: Any) -> bool:
+        """Return whether user may mark this todo item as done."""
+
+        return bool(self.can_access(user) and self.status != TodoStatus.DONE)

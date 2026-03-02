@@ -393,7 +393,9 @@ class TestTodo(TestCase):
         self.user_alpha.groups.remove(self.group_alpha)
 
         payload = self.get_json("todo:api_group_items", self.user_alpha_peer)
-        item_payload = next(entry for entry in payload["results"] if entry["id"] == item.id)
+        item_payload = next(
+            entry for entry in payload["results"] if entry["id"] == item.id
+        )
         self.assertTrue(item_payload["can_delete"])
 
     def test_group_item_creator_cannot_delete_after_losing_visibility(self):
@@ -500,8 +502,8 @@ class TestTodo(TestCase):
             TodoItem.objects.filter(title="Hidden group admin task").exists()
         )
 
-    def test_hidden_group_items_not_listed_or_actionable(self):
-        # Hidden-group items should not be listed, even for full_access users.
+    def test_hidden_group_items_visible_and_actionable_for_group_members(self):
+        # Hidden-group items are visible/actionable for members and full_access users.
         hidden_item = TodoItem.objects.create(
             group=self.group_hidden,
             title="Hidden existing item",
@@ -511,18 +513,17 @@ class TestTodo(TestCase):
         self.login(self.user_admin)
         response = self.client.get(reverse("todo:api_group_items"))
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn(
+        self.assertIn(
             hidden_item.id, {item["id"] for item in response.json()["results"]}
         )
 
-        # Hidden-group items should not be claimable by non-full users,
-        # even if the user is a member of that group.
+        # Hidden-group members can claim hidden-group items.
         self.user_alpha.groups.add(self.group_hidden)
         self.login(self.user_alpha)
         response = self.client.post(reverse("todo:claim", args=[hidden_item.id]))
         self.assertEqual(response.status_code, 302)
         hidden_item.refresh_from_db()
-        self.assertIsNone(hidden_item.claimed_by)
+        self.assertEqual(hidden_item.claimed_by, self.user_alpha)
 
     def test_api_personal_other_requires_full_access(self):
         self.login(self.user_alpha)

@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.handlers.wsgi import WSGIRequest
 from django.core.paginator import Page, Paginator
-from django.db.models import F, QuerySet
+from django.db.models import QuerySet
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -70,17 +70,9 @@ def _paginate_queryset(
 def _serialize_item(item: TodoItem, user: Any) -> dict[str, Any]:
     """Serialize item data for the todo list API."""
 
-    is_full_access = user.has_perm(PERM_FULL_ACCESS)
-    is_claimed_by_user = item.claimed_by_id == user.id
-    is_done = item.status == TodoStatus.DONE
-
-    can_claim = not is_done and item.claimed_by_id is None
-    can_unclaim = (
-        not is_done
-        and item.claimed_by_id is not None
-        and (is_full_access or is_claimed_by_user)
-    )
-    can_done = not is_done
+    can_claim = item.can_claim(user)
+    can_unclaim = item.can_unclaim(user)
+    can_done = item.can_done(user)
     can_delete = item.can_delete(user)
     # Frontend receives explicit action flags so it can render controls without
     # re-implementing permission/state logic.
@@ -222,7 +214,7 @@ def claim(request: WSGIRequest, item_id: int) -> HttpResponse:
 
     if item.status == TodoStatus.DONE:
         messages.info(request, _("This item is already done."))
-    elif item.claimed_by is None:
+    elif item.can_claim(user):
         item.claimed_by = user
         item.claimed_at = timezone.now()
         item.save(update_fields=["claimed_by", "claimed_at"])
@@ -247,7 +239,7 @@ def done(request: WSGIRequest, item_id: int) -> HttpResponse:
 
     if item.status == TodoStatus.DONE:
         messages.info(request, _("This item is already marked done."))
-    else:
+    elif item.can_done(user):
         if item.claimed_by is None:
             item.claimed_by = user
             item.claimed_at = timezone.now()
@@ -264,6 +256,8 @@ def done(request: WSGIRequest, item_id: int) -> HttpResponse:
             ]
         )
         messages.success(request, _("Todo item marked done."))
+    else:
+        messages.error(request, _("You do not have access to this item."))
 
     return redirect("todo:index")
 
@@ -284,7 +278,7 @@ def unclaim(request: WSGIRequest, item_id: int) -> HttpResponse:
         messages.info(request, _("This item is already marked done."))
     elif item.claimed_by is None:
         messages.info(request, _("This item is not claimed."))
-    elif user.has_perm(PERM_FULL_ACCESS) or item.claimed_by == user:
+    elif item.can_unclaim(user):
         item.claimed_by = None
         item.claimed_at = None
         item.save(update_fields=["claimed_by", "claimed_at"])
@@ -320,11 +314,7 @@ def api_group_items(request: WSGIRequest) -> JsonResponse:
     """Return group items visible to the current user."""
 
     user = cast(Any, request.user)
-    items_qs = (
-        TodoItem.objects.group_items_visible_to(user)
-        .with_related()
-        .order_by(F("deadline").asc(nulls_last=True), "created_at")
-    )
+    items_qs = TodoItem.objects.group_items_visible_to(user).for_api_list()
     return _paginated_items_response(request, items_qs, user)
 
 
@@ -335,11 +325,7 @@ def api_personal_items(request: WSGIRequest) -> JsonResponse:
     """Return personal items owned by the current user."""
 
     user = cast(Any, request.user)
-    items_qs = (
-        TodoItem.objects.personal_items_for_user(user)
-        .with_related()
-        .order_by(F("deadline").asc(nulls_last=True), "created_at")
-    )
+    items_qs = TodoItem.objects.personal_items_for_user(user).for_api_list()
     return _paginated_items_response(request, items_qs, user)
 
 
@@ -353,9 +339,5 @@ def api_personal_other_items(request: WSGIRequest) -> JsonResponse:
     if not user.has_perm(PERM_FULL_ACCESS):
         return _json_no_store({"detail": _("Forbidden")}, status=403)
 
-    items_qs = (
-        TodoItem.objects.personal_other_items_for_user(user)
-        .with_related()
-        .order_by(F("deadline").asc(nulls_last=True), "created_at")
-    )
+    items_qs = TodoItem.objects.personal_other_items_for_user(user).for_api_list()
     return _paginated_items_response(request, items_qs, user)
