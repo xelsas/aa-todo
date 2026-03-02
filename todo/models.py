@@ -128,6 +128,13 @@ class TodoItem(models.Model):
         ordering = ["created_at"]
         default_permissions = ()
 
+    def _creator_can_still_access_group_item(self) -> bool:
+        """Return whether original creator still has access to this group item."""
+
+        if self.group_id is None or self.created_by is None:
+            return False
+        return self.can_access(self.created_by)
+
     def can_access(self, user: Any) -> bool:
         """Return whether user may perform item actions."""
 
@@ -146,3 +153,17 @@ class TodoItem(models.Model):
             user.groups.filter(pk=self.group_id).exists()
             or self.claimed_by_id == user.id
         )
+
+    def can_delete(self, user: Any) -> bool:
+        """Return whether user may delete this todo item."""
+
+        if user.has_perm(PERM_FULL_ACCESS):
+            return True
+
+        if self.group_id is not None and not self._creator_can_still_access_group_item():
+            return bool(user.groups.filter(pk=self.group_id).exists())
+
+        if self.created_by_id != user.id:
+            return False
+
+        return bool(self.status != TodoStatus.DONE and self.claimed_by_id is None)

@@ -20,7 +20,7 @@ from django.views.decorators.http import require_GET, require_POST
 # AA Todo App
 from todo.constants import CACHE_CONTROL_NO_STORE, PERM_BASIC_ACCESS, PERM_FULL_ACCESS
 from todo.forms import TodoItemCreateForm
-from todo.models import TodoItem, TodoStatus, is_group_selectable_for_todo
+from todo.models import TodoItem, TodoStatus
 
 DEFAULT_PAGE_SIZE = 10
 MAX_PAGE_SIZE = 100
@@ -71,7 +71,6 @@ def _serialize_item(item: TodoItem, user: Any) -> dict[str, Any]:
     """Serialize item data for the todo list API."""
 
     is_full_access = user.has_perm(PERM_FULL_ACCESS)
-    is_owner = item.created_by_id == user.id
     is_claimed_by_user = item.claimed_by_id == user.id
     is_done = item.status == TodoStatus.DONE
 
@@ -82,9 +81,7 @@ def _serialize_item(item: TodoItem, user: Any) -> dict[str, Any]:
         and (is_full_access or is_claimed_by_user)
     )
     can_done = not is_done
-    can_delete = is_full_access or (
-        is_owner and not is_done and item.claimed_by_id is None
-    )
+    can_delete = item.can_delete(user)
     # Frontend receives explicit action flags so it can render controls without
     # re-implementing permission/state logic.
 
@@ -306,20 +303,12 @@ def delete(request: WSGIRequest, item_id: int) -> HttpResponse:
 
     user = cast(Any, request.user)
     item = get_object_or_404(TodoItem, pk=item_id)
-    if item.group_id is not None and not is_group_selectable_for_todo(item.group_id):
-        messages.error(request, _("You do not have access to this item."))
-        return redirect("todo:index")
 
-    if user.has_perm(PERM_FULL_ACCESS):
+    if item.can_delete(user):
         item.delete()
         messages.success(request, _("Todo item deleted."))
-    elif item.created_by != user:
-        messages.error(request, _("You can only delete items you created."))
-    elif item.status == TodoStatus.DONE or item.claimed_by is not None:
-        messages.error(request, _("Only open and unclaimed items can be deleted."))
     else:
-        item.delete()
-        messages.success(request, _("Todo item deleted."))
+        messages.error(request, _("You do not have permission to delete this item."))
 
     return redirect("todo:index")
 

@@ -77,6 +77,18 @@ class TestTodo(TestCase):
             corp_ticker="ADMIN",
         )
 
+        cls.user_alpha_peer = user_model.objects.create_user(username="user_alpha_peer")
+        cls.user_alpha_peer.user_permissions.add(cls.basic_perm)
+        cls.user_alpha_peer.groups.add(cls.group_alpha)
+        AuthUtils.add_main_character(
+            cls.user_alpha_peer,
+            "Alpha Peer Main",
+            "1000004",
+            corp_id="2004",
+            corp_name="Alpha Peer Corp",
+            corp_ticker="APEER",
+        )
+
     def login(self, user):
         self.client.force_login(user)
 
@@ -327,6 +339,76 @@ class TestTodo(TestCase):
 
         self.assertFalse(TodoItem.objects.filter(pk=item_claimed.pk).exists())
         self.assertFalse(TodoItem.objects.filter(pk=item_done.pk).exists())
+
+    def test_group_item_delete_requires_creator_while_creator_can_access(self):
+        # While creator can still access the item, non-creators cannot delete it.
+        item = TodoItem.objects.create(
+            group=self.group_alpha,
+            title="Creator-controlled item",
+            created_by=self.user_alpha,
+        )
+
+        self.login(self.user_alpha_peer)
+        response = self.client.post(reverse("todo:delete", args=[item.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(TodoItem.objects.filter(pk=item.pk).exists())
+
+    def test_group_item_group_member_can_delete_if_creator_loses_visibility(self):
+        # If creator loses visibility, any user in that group can delete it.
+        item = TodoItem.objects.create(
+            group=self.group_alpha,
+            title="Orphaned group item",
+            created_by=self.user_alpha,
+            status=TodoStatus.DONE,
+        )
+        self.user_alpha.groups.remove(self.group_alpha)
+
+        self.login(self.user_alpha_peer)
+        response = self.client.post(reverse("todo:delete", args=[item.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(TodoItem.objects.filter(pk=item.pk).exists())
+
+    def test_group_item_non_group_user_cannot_delete_if_creator_loses_visibility(self):
+        # If creator loses visibility, users outside that group still cannot delete it.
+        item = TodoItem.objects.create(
+            group=self.group_alpha,
+            title="Orphaned group item (non-member blocked)",
+            created_by=self.user_alpha,
+        )
+        self.user_alpha.groups.remove(self.group_alpha)
+
+        self.login(self.user_bravo)
+        response = self.client.post(reverse("todo:delete", args=[item.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(TodoItem.objects.filter(pk=item.pk).exists())
+
+    def test_group_item_api_can_delete_when_creator_loses_visibility(self):
+        # API should expose delete action for group members on orphaned group items.
+        item = TodoItem.objects.create(
+            group=self.group_alpha,
+            title="Orphaned item shows delete",
+            created_by=self.user_alpha,
+            status=TodoStatus.DONE,
+        )
+        self.user_alpha.groups.remove(self.group_alpha)
+
+        payload = self.get_json("todo:api_group_items", self.user_alpha_peer)
+        item_payload = next(entry for entry in payload["results"] if entry["id"] == item.id)
+        self.assertTrue(item_payload["can_delete"])
+
+    def test_group_item_creator_cannot_delete_after_losing_visibility(self):
+        # Original creator cannot delete group item once they can no longer access it.
+        item = TodoItem.objects.create(
+            group=self.group_alpha,
+            title="Creator lost visibility",
+            created_by=self.user_alpha,
+        )
+        self.user_alpha.groups.remove(self.group_alpha)
+
+        self.login(self.user_alpha)
+        response = self.client.post(reverse("todo:delete", args=[item.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(TodoItem.objects.filter(pk=item.pk).exists())
 
     def test_personal_items_visibility_and_creation(self):
         # Users can create personal items (no group selected).
