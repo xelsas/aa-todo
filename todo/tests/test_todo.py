@@ -578,7 +578,7 @@ class TestTodo(TestCase):
         self.assertEqual(other_page_1["page_size"], 4)
         self.assertEqual(len(other_page_1["results"]), 4)
 
-    def test_api_orders_by_deadline_then_created_at_with_nulls_last(self):
+    def test_api_orders_open_first_then_deadline_then_created_at_with_nulls_last(self):
         today = timezone.localdate()
 
         TodoItem.objects.create(
@@ -586,6 +586,14 @@ class TestTodo(TestCase):
             title="group d1 first",
             created_by=self.user_alpha,
             deadline=today + timedelta(days=1),
+        )
+        TodoItem.objects.create(
+            group=self.group_alpha,
+            title="group done d0",
+            created_by=self.user_alpha,
+            deadline=today,
+            status=TodoStatus.DONE,
+            done_by=self.user_alpha,
         )
         TodoItem.objects.create(
             group=self.group_alpha,
@@ -626,6 +634,7 @@ class TestTodo(TestCase):
                 "group d2",
                 "group none first",
                 "group none second",
+                "group done d0",
             ],
         )
 
@@ -634,6 +643,14 @@ class TestTodo(TestCase):
             title="personal d1",
             created_by=self.user_alpha,
             deadline=today + timedelta(days=1),
+        )
+        TodoItem.objects.create(
+            group=None,
+            title="personal done d0",
+            created_by=self.user_alpha,
+            deadline=today,
+            status=TodoStatus.DONE,
+            done_by=self.user_alpha,
         )
         TodoItem.objects.create(
             group=None,
@@ -655,7 +672,8 @@ class TestTodo(TestCase):
             ]
         ]
         self.assertEqual(
-            personal_titles, ["personal d1", "personal d2", "personal none"]
+            personal_titles,
+            ["personal d1", "personal d2", "personal none", "personal done d0"],
         )
 
         TodoItem.objects.create(
@@ -669,6 +687,14 @@ class TestTodo(TestCase):
             title="other personal d1",
             created_by=self.user_bravo,
             deadline=today + timedelta(days=1),
+        )
+        TodoItem.objects.create(
+            group=None,
+            title="other personal done d0",
+            created_by=self.user_bravo,
+            deadline=today,
+            status=TodoStatus.DONE,
+            done_by=self.user_bravo,
         )
 
         other_personal_titles = [
@@ -685,6 +711,8 @@ class TestTodo(TestCase):
                 "personal d2",
                 "personal none",
                 "other personal none",
+                "personal done d0",
+                "other personal done d0",
             ],
         )
 

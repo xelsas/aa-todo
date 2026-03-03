@@ -7,7 +7,7 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.db import models
-from django.db.models import F, Q
+from django.db.models import Case, F, IntegerField, Q, Value, When
 from django.db.models.query import QuerySet
 from django.utils.translation import gettext_lazy as _
 
@@ -69,8 +69,13 @@ class TodoItemQuerySet(models.QuerySet["TodoItem"]):
     def for_api_list(self) -> "TodoItemQuerySet":
         """Return queryset with related models and default API ordering."""
 
+        done_last_order = Case(
+            When(status=TodoStatus.DONE, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField(),
+        )
         return self.with_related().order_by(
-            F("deadline").asc(nulls_last=True), "created_at"
+            done_last_order, F("deadline").asc(nulls_last=True), "created_at"
         )
 
     def group_items_visible_to(self, user: Any) -> "TodoItemQuerySet":
